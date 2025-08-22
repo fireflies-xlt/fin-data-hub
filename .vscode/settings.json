@@ -1,0 +1,76 @@
+{
+  // files.exclude: 控制文件浏览器中隐藏哪些文件/文件夹
+  "files.exclude": {
+    "**/.git": true, // 保留常见的 Git 排除
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/__pycache__": true, // 排除 Python 缓存
+    "**/venv": true,      // <--- 添加这一行来排除 venv 目录
+    "**/build": true,
+    "**/build/**": true,
+    // "**/configs/ak/**": true,
+  },
+  // search.exclude: 控制在搜索结果中排除哪些文件/文件夹
+  "search.exclude": {
+    "**/node_modules": true, // 保留常见的 Node 排除
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/venv": true,      // <--- 添加这一行来排除 venv 目录
+    "**/__pycache__": true, // 排除 Python 缓存
+    "**/build": true,
+    "**/build/**": true,
+    // "**/configs/ak/**": true,
+  },
+  // ----------- Python Specific Settings -----------
+  // 明确指定 Python 解释器路径 (请替换为你的实际路径)
+  // Windows 示例: "python.defaultInterpreterPath": "C:/Users/YourUser/path/to/.venv/Scripts/python.exe",
+  // Linux/macOS 示例: "python.defaultInterpreterPath": "/home/user/path/to/.venv/bin/python",
+  // 如果 VS Code 能自动检测，可以注释掉或省略此行
+
+  "[python]": {
+    // 设置 Black 为默认格式化程序
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    // 启用保存时格式化
+    "editor.formatOnSave": true,
+    // 配置保存时运行的代码操作
+    "editor.codeActionsOnSave": {
+      // 使用 isort 整理导入
+      "source.organizeImports": "explicit" // 或者 "always" 如果你希望总是运行
+    }
+  },
+  // 启用 Black Formatter 扩展 (如果未全局启用)
+  "black-formatter.args": [
+    "--line-length=88" // 与 pyproject.toml 保持一致
+    // 你可以在这里添加其他 black 参数
+  ],
+  // 启用 isort 扩展 (如果未全局启用)
+  "isort.args": [
+    "--profile=black" // 与 pyproject.toml 保持一致
+  ],
+  // 启用 Flake8 Linting
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": [
+    "--max-line-length=88", // 与 pyproject.toml 保持一致
+    "--ignore=E203,W503"    // 与 pyproject.toml 保持一致
+    // 添加其他需要的 flake8 参数
+  ],
+  "python.linting.enabled": true, // 确保 linting 总开关是开启的
+  "python.linting.lintOnSave": true, // 保存时进行 lint 检查
+
+  // Pylance / Pyright Type Checking
+  // "basic": 基础类型检查 (默认)
+  // "strict": 更严格的检查
+  // "off": 关闭类型检查
+  "python.analysis.typeCheckingMode": "basic",
+
+  // 可选：如果你的 pyproject.toml 不在项目根目录，需要指定路径
+  // "python.analysis.projecTomlPath": "path/to/your/pyproject.toml",
+
+  // 可选: 让 Pylance 知道你的源码目录 (如果不是根目录)
+  // "python.analysis.extraPaths": [
+  //   "./src" // 假设你的代码在 src 文件夹下
+  // ],
+}

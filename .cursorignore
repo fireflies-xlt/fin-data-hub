@@ -1,0 +1,14 @@
+# Ignore patterns for Cursor AI features
+
+# Virtual environment
+venv/
+
+# Common directories to ignore
+node_modules/
+__pycache__/
+.git/
+
+# Build artifacts or large data directories (add as needed)
+build/
+dist/
+data/large_files/ 

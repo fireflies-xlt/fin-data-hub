@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 调试文件
+debug/
+*.log
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE相关
+.idea/
+#.vscode/
+*.swp
+*.swo
+# .cursor/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 数据文件（根据需要可以取消注释）
+# *.csv
+# *.json
+# *.xlsx 
+/.env
+/.env.production

@@ -1,0 +1,77 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  default:
+    (): uvicorn.logging.DefaultFormatter
+    fmt: "%(levelprefix)s %(asctime)s - %(name)s - %(message)s"
+    use_colors: true
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+  # Formatter for file logs (usually without color codes)
+  file_default:
+    (): uvicorn.logging.DefaultFormatter
+    fmt: "%(levelprefix)s %(asctime)s - %(name)s - %(message)s"
+    use_colors: false
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+  access:
+    (): uvicorn.logging.AccessFormatter
+    fmt: '%(asctime)s - %(client_addr)s - "%(request_line)s" %(status_code)s'
+    use_colors: true
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+  # Formatter for access file logs (without color codes)
+  file_access:
+    (): uvicorn.logging.AccessFormatter
+    fmt: '%(asctime)s - %(client_addr)s - "%(request_line)s" %(status_code)s'
+    use_colors: false
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+handlers:
+  # Console Handlers (as before)
+  default_console:
+    formatter: default
+    class: logging.StreamHandler
+    stream: ext://sys.stderr
+  access_console:
+    formatter: access
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+
+  # File Handlers (New)
+  default_file:
+    formatter: file_default # Use formatter without colors
+    class: logging.handlers.RotatingFileHandler
+    filename: ./logs/app.log # Log file path (ensure ./logs directory exists)
+    maxBytes: 10485760 # 10 MB
+    backupCount: 3 # Keep 3 backup files
+    encoding: utf8 # Explicitly set encoding for file
+  access_file:
+    formatter: file_access # Use access formatter without colors
+    class: logging.handlers.RotatingFileHandler
+    filename: ./logs/access.log # Log file path (ensure ./logs directory exists)
+    maxBytes: 10485760 # 10 MB
+    backupCount: 3 # Keep 3 backup files
+    encoding: utf8 # Explicitly set encoding for file
+
+loggers:
+  "": # Root logger (for app logs)
+    handlers:
+      - default_console # Output to console
+      - default_file    # Also output to app.log file
+    level: INFO
+
+  uvicorn.access:
+    handlers:
+      - access_console # Output to console
+      - access_file    # Also output to access.log file
+    level: INFO
+    propagate: false
+
+  # uvicorn.error: # Keep commented out unless needed
+  #   level: INFO
+  #   handlers:
+  #     - default_console
+  #     - default_file
+  #   propagate: false 

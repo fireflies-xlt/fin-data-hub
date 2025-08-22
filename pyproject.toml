@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=61.0"] # 使用 setuptools 作为构建后端
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fin-data-hub" 
+version = "0.1.0"
+description = "金融数据中心"
+readme = "README.md"
+requires-python = ">=3.13.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    # --- Core Functionality ---
+    "python-dotenv >= 1.1.1",
+    "pydantic >= 2.11.7",
+    "pydantic-settings >= 2.10.1",
+    "rich",     # For rich text formatting in console output
+    "click",    # For command line interface
+    "tqdm",     # progress bar
+    "typer",                   # For creating CLI applications (runners)
+    "loguru",
+    "PyYAML",
+    "lxml",
+    "requests",
+    "playwright",
+    "beautifulsoup4",
+    "akshare",
+    "tushare >= 1.4.23",
+                       
+    "schedule",                # For scheduling jobs (if needed by runners directly)
+    "apscheduler >= 3.11.0",   # Advanced job scheduling
+
+    # --- Web Framework ---
+    "fastapi >= 0.116.1",
+    "uvicorn[standard] >= 0.35.0",
+    "fastapi-pagination",
+
+    # --- Monitoring & Observability ---
+    "psutil",
+    "opentelemetry-api",  
+    "opentelemetry-sdk",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-pymongo",
+    "opentelemetry-instrumentation-system-metrics",
+    "opentelemetry-exporter-prometheus",
+    "prometheus-client",
+    
+    # Development tools
+    "types-requests",         # Type stubs
+    "types-beautifulsoup4",   # Type stubs
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio",
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+]
+
+[project.scripts]
+fin-data-hub = "fin_data_hub.run:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["fin_data_hub*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md", "*.yaml", "*.yml", "*.json"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88 
+
+[tool.mypy]
+python_version = "3.13"
+# 显式指定包基础路径，尝试解决 "found twice" 问题
+explicit_package_bases = true
+# 启用此警告：当函数返回隐式 Any 时发出警告（通常因为缺少返回类型注解）
+warn_return_any = true
+# warn_unused_ignores = true
+
+# 排除 venv 目录
+exclude = 'venv'
+
+# 1. 全局设置：默认 *不* 忽略缺少类型信息的导入
+ignore_missing_imports = false
+
+# 可以稍后启用更严格的检查:
+# check_untyped_defs = true
+# disallow_untyped_defs = true
+
+# 2. 对特定的第三方库模块，设置忽略缺少类型信息的错误
+# 使用双括号定义 overrides 数组
+[[tool.mypy.overrides]]
+module = [
+    "requests.*",
+    "playwright.*",
+    "akshare.*",
+    "pandas.*",
+    "typer.*",
+    "pydantic_settings.*",
+    "pydantic.*", # Keep pydantic here if you have issues with its own types
+    "pytest.*", # 如果使用pytest
+    "opentelemetry.*", # OpenTelemetry相关模块
+    "prometheus_client.*" # Prometheus客户端
+]
+# 对上面列表中的所有模块，应用此规则
+ignore_missing_imports = true
+
