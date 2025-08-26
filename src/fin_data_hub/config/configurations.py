@@ -22,7 +22,6 @@ class Configurations(BaseSettings):
     #     default=8003, description="Prometheus监控指标服务端口"
     # )
 
-
     # --- MySQL 配置 ---
     mysql_host: str = Field(default="localhost", description="MySQL 主机")
     mysql_port: int = Field(default=3306, description="MySQL 端口")

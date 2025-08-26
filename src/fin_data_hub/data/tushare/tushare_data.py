@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from fin_data_hub.config import config
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists
-from fin_data_hub.foundation.utils.date_utils import future_year_end
+from fin_data_hub.foundation.utils.date_utils import future_year_end, next_day
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,11 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
     else:
         last_date = None
     
-    # 获取未来3年的结束日期
-    year_end = future_year_end(3)
+    # 获取未来今年的结束日期
+    year_end = future_year_end(0)
     
-    # 如果最新日期已经是未来3年后，说明数据已是最新
-    if last_date and str(last_date).replace('-', '') >= year_end:
+    # 如果最新日期已经是今年后，说明数据已是最新
+    if last_date and str(last_date) >= year_end:
         logger.info("交易日历数据已是最新，无需更新")
         return None
     
@@ -57,13 +57,14 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
         start_date = '19900101'
     else:
         # 从最新日期后一天开始拉取
-        start_date = str(last_date + 1).replace('-', '')
+        start_date = next_day(str(last_date))
     
     df = get_tushare_client().trade_cal(
         start_date=start_date,
         end_date=year_end,
     )
-    df.to_sql(_trade_calendar_table, con=mysql_engine(), if_exists='append', index=False)
+    if df is not None and not df.empty:
+        df.to_sql(_trade_calendar_table, con=mysql_engine(), if_exists='append', index=False)
     logger.info(f"获取到 {len(df)} 条交易日历数据")
     return df
 
