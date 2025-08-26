@@ -7,7 +7,7 @@ name = "fin-data-hub"
 version = "0.1.0"
 description = "金融数据中心"
 readme = "README.md"
-requires-python = ">=3.13.0"
+requires-python = ">=3.12.0"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -33,6 +33,11 @@ dependencies = [
                        
     "schedule",                # For scheduling jobs (if needed by runners directly)
     "apscheduler >= 3.11.0",   # Advanced job scheduling
+
+    # mysql
+    "sqlalchemy >= 2.0.43",
+    "mysqlclient >= 2.2.7",
+    "PyMySQL >= 1.1.2",
 
     # --- Web Framework ---
     "fastapi >= 0.116.1",
@@ -88,7 +93,7 @@ profile = "black"
 line_length = 88 
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 # 显式指定包基础路径，尝试解决 "found twice" 问题
 explicit_package_bases = true
 # 启用此警告：当函数返回隐式 Any 时发出警告（通常因为缺少返回类型注解）
