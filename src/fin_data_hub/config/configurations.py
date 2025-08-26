@@ -18,9 +18,9 @@ class Configurations(BaseSettings):
     tushare_token: str = Field(default="", description="Tushare API Token")
 
     # --- 监控配置 ---
-    # telemetry_metrics_port: int = Field(
-    #     default=8003, description="Prometheus监控指标服务端口"
-    # )
+    telemetry_metrics_port: int = Field(
+        default=8003, description="Prometheus监控指标服务端口"
+    )
 
     # --- MySQL 配置 ---
     mysql_host: str = Field(default="localhost", description="MySQL 主机")
@@ -36,6 +36,11 @@ class Configurations(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+
+    @property
+    def service_name(self):
+        return "fin-data-hub"
 
     @property
     def mysql_url(self):

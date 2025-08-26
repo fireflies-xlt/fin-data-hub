@@ -37,7 +37,7 @@ dependencies = [
     # mysql
     "sqlalchemy >= 2.0.43",
     "mysqlclient >= 2.2.7",
-    "PyMySQL >= 1.1.2",
+    "PyMySQL >= 1.1.0",
 
     # --- Web Framework ---
     "fastapi >= 0.116.1",

@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any, Callable
 
 import pandas as pd
@@ -7,10 +8,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from fin_data_hub.config import config
+from fin_data_hub.foundation.monitoring.telemetry import get_service_meter
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists
-from fin_data_hub.foundation.utils.date_utils import future_year_end, next_day
+from fin_data_hub.foundation.utils.date_utils import future_year_end, get_stock_start_date, next_day
 
 logger = logging.getLogger(__name__)
+
+# 初始化metrics
+meter = get_service_meter()
+tushare_function_duration = meter.create_histogram(
+    name="tushare_function_duration",
+    description="Tushare函数执行时间",
+    unit="ms"
+)
 
 _tushare_client: Any = None
 _trade_calendar_table = 'trade_calendar'
@@ -19,9 +29,27 @@ def wrap_tushare(func: Callable) -> Callable:
     """
     包装 tushare 函数, 标记为 tushare 函数
     1. 每次调用时都重新初始化 tushare 客户端
+    2. 使用 OpenTelemetry metrics 统计调用耗时
     """
     def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
+        start_time = time.time()
+        try:
+            result = func(*args, **kwargs)
+            success = True
+            return result
+        except Exception as e:
+            success = False
+            logger.error(f"Tushare函数 {func.__name__} 执行失败: {e}")
+        finally:
+            # 计算执行时间（毫秒）
+            duration_ms = (time.time() - start_time) * 1000
+            tushare_function_duration.record(
+                duration_ms,
+                attributes={
+                    "name": f"tushare.{func.__name__}",
+                    "success": str(success)
+                }
+            )
     return wrapper
 
 def get_tushare_client() -> Any:
@@ -52,12 +80,7 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
         logger.info("交易日历数据已是最新，无需更新")
         return None
     
-    if last_date is None:
-        # 如果数据库为空，从1990年开始拉取
-        start_date = '19900101'
-    else:
-        # 从最新日期后一天开始拉取
-        start_date = next_day(str(last_date))
+    start_date = get_stock_start_date() if last_date is None else next_day(str(last_date))
     
     df = get_tushare_client().trade_cal(
         start_date=start_date,

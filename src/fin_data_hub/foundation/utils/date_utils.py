@@ -1,5 +1,11 @@
 import datetime
 
+def get_stock_start_date() -> str:
+    """
+    获取表的开始日期
+    """
+    return '19900101'
+
 def future_year_end(years: int = 0) -> str:
     """
     获取未来几年的年底日期
