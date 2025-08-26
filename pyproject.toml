@@ -70,7 +70,7 @@ dev = [
 ]
 
 [project.scripts]
-fin-data-hub = "fin_data_hub.run:main"
+fin-api = "fin_data_hub.run:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

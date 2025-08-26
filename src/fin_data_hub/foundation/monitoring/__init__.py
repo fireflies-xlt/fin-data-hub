@@ -1,6 +1,4 @@
-from .telemetry import (
-    setup_telemetry,
-)
+from .telemetry import setup_telemetry
 
 __all__ = [
     "setup_telemetry",

@@ -1,3 +1,5 @@
+import logging
+
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -11,6 +13,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from prometheus_client import start_http_server
 
 from fin_data_hub.config import config
+
+logger = logging.getLogger(__name__)
 
 # 全局指标对象
 def setup_telemetry(app, service_name=config.service_name, metrics_port=config.telemetry_metrics_port):
@@ -51,6 +55,8 @@ def setup_telemetry(app, service_name=config.service_name, metrics_port=config.t
     
     # 自动检测系统指标 (CPU, 内存, 磁盘, 网络等)
     SystemMetricsInstrumentor().instrument()
+
+    logger.info("OpenTelemetry监控初始化完成")
 
 
 def get_service_meter(service_name=config.service_name):
