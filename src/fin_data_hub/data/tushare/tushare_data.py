@@ -41,6 +41,7 @@ def wrap_tushare(func: Callable) -> Callable:
             success = False
             logger.error(f"Tushare函数 {func.__name__} 执行失败: {e}")
         finally:
+            logger.info(f"Tushare函数 {func.__name__} 执行完成")
             # 计算执行时间（毫秒）
             duration_ms = (time.time() - start_time) * 1000
             tushare_function_duration.record(
@@ -61,6 +62,7 @@ def get_tushare_client() -> Any:
         _tushare_client = ts.pro_api()
     return _tushare_client
 
+@wrap_tushare
 def sync_trade_calendar_data() -> pd.DataFrame | None:
     """同步交易日历数据 - 可测试的业务逻辑"""
     # 查询数据库中最新的日期
@@ -94,10 +96,11 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
 # 创建后台调度器
 scheduler = BackgroundScheduler()
 
-@wrap_tushare
-@scheduler.scheduled_job(CronTrigger(day=1, hour=1, minute=0))  # 每月1号凌晨1点
-def sync_trade_calendar():
-    """定时同步交易日历数据"""
+# 添加调度任务
+# @scheduler.scheduled_job(CronTrigger(day=1, hour=1, minute=0))  # 每月1号凌晨1点
+@scheduler.scheduled_job(CronTrigger(minute="*/1"))  # 每分钟
+def scheduled_sync_trade_calendar():
+    """调度器调用的函数"""
     return sync_trade_calendar_data()
 
 def start_scheduler():
