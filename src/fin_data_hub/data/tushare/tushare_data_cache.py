@@ -4,7 +4,7 @@ from typing import Optional
 import pandas as pd
 
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists
-from fin_data_hub.data.tushare.tushare_data import stock_basic_table, trade_calendar_table
+from fin_data_hub.data.tushare.constants import STOCK_BASIC_TABLE, TRADE_CALENDAR_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,11 @@ def get_stock_basic_from_db() -> pd.DataFrame:
     """
     获取股票数据
     """
-    if not table_exists(stock_basic_table):
-        logger.warning(f"股票基础数据表 {stock_basic_table} 不存在")
+    if not table_exists(STOCK_BASIC_TABLE):
+        logger.warning(f"股票基础数据表 {STOCK_BASIC_TABLE} 不存在")
         return pd.DataFrame()
     
-    query = f"SELECT ts_code, symbol, name, area, industry, market, list_date, status FROM {stock_basic_table}"
+    query = f"SELECT ts_code, symbol, name, area, industry, market, list_date, status FROM {STOCK_BASIC_TABLE}"
     df = pd.read_sql(query, mysql_engine())
     
     if df.empty:
@@ -84,11 +84,11 @@ def get_trade_calendar_from_db() -> pd.DataFrame:
     """
     获取交易日历数据
     """
-    if not table_exists(trade_calendar_table):
-        logger.warning(f"交易日历数据表 {trade_calendar_table} 不存在")
+    if not table_exists(TRADE_CALENDAR_TABLE):
+        logger.warning(f"交易日历数据表 {TRADE_CALENDAR_TABLE} 不存在")
         return pd.DataFrame()
     
-    query = f"SELECT cal_date, is_open FROM {trade_calendar_table}"
+    query = f"SELECT cal_date, is_open FROM {TRADE_CALENDAR_TABLE}"
     df = pd.read_sql(query, mysql_engine())
     
     if df.empty:

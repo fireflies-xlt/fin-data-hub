@@ -15,7 +15,7 @@ def _get_mysql_engine():
             pool_timeout=30,        # 连接超时时间
             pool_recycle=3600,      # 连接回收时间（1小时）
             pool_pre_ping=True,     # 连接前检查
-            echo=False              # 不显示 SQL 语句
+            echo=False,             # 不显示 SQL 语句
         )
     return _mysql_engine
 
@@ -35,3 +35,20 @@ def table_exists(table_name: str) -> bool:
         result = conn.execute(text(query))
         row = result.fetchone()
         return row[0] > 0 if row else False
+    
+
+def table_empty(table_name: str) -> bool:
+    """检查表是否为空"""
+    query = f"""
+    SELECT COUNT(*) as table_empty 
+    FROM {table_name}
+    """
+    with mysql_engine().connect() as conn:
+        result = conn.execute(text(query))
+        row = result.fetchone()
+        return row[0] == 0 if row else True
+    
+
+def table_exists_and_not_empty(table_name: str) -> bool:
+    """检查表是否存在且不为空"""
+    return table_exists(table_name) and not table_empty(table_name)

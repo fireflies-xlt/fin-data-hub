@@ -12,8 +12,7 @@ from fin_data_hub.config import config
 from fin_data_hub.foundation.monitoring.telemetry import get_service_meter
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine
 from fin_data_hub.foundation.utils.date_utils import future_year_end, get_stock_start_date
-from fin_data_hub.data.tushare.tushare_data_cache import update_stock_basic_cache, update_trade_calendar_cache
-
+from fin_data_hub.data.tushare.constants import STOCK_BASIC_TABLE, TRADE_CALENDAR_TABLE
 logger = logging.getLogger(__name__)
 
 # 初始化metrics
@@ -25,8 +24,6 @@ tushare_function_duration = meter.create_histogram(
 )
 
 _tushare_client: Any = None
-trade_calendar_table = 'tushare_trade_calendar'
-stock_basic_table = 'tushare_stock_basic'
 
 # 简单的运行状态跟踪（线程安全）
 _running_functions = set()
@@ -103,7 +100,8 @@ def sync_stock_basic_data() -> pd.DataFrame | None:
     data = pd.concat([l_data, d_data], ignore_index=True)
 
     if data is not None and not data.empty:
-        data.to_sql(stock_basic_table, con=mysql_engine(), if_exists='replace', index=False)
+        data.to_sql(STOCK_BASIC_TABLE, con=mysql_engine(), if_exists='replace', index=False)
+        from fin_data_hub.data.tushare.tushare_data_cache import update_stock_basic_cache
         update_stock_basic_cache(data)
     logger.info(f"获取到 {len(data)} 条股票数据")
     return data
@@ -119,7 +117,8 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
     end_date = future_year_end(0)
     df = client.trade_cal(exchange='', start_date=start_date, end_date=end_date)
     if df is not None and not df.empty:
-        df.to_sql(trade_calendar_table, con=mysql_engine(), if_exists='replace', index=False)
+        df.to_sql(TRADE_CALENDAR_TABLE, con=mysql_engine(), if_exists='replace', index=False)
+        from fin_data_hub.data.tushare.tushare_data_cache import update_trade_calendar_cache
         update_trade_calendar_cache(df)
     logger.info(f"获取到 {len(df)} 条交易日历数据")
     return df

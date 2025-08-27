@@ -44,7 +44,7 @@ class Configurations(BaseSettings):
 
     @property
     def mysql_url(self):
-        return f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}"
+        return f"mysql+pymysql://{self.mysql_user}:{self.mysql_password}@{self.mysql_host}:{self.mysql_port}/{self.mysql_database}?charset=utf8mb4"
 
 # 导出单例实例
 config = Configurations()
