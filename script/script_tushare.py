@@ -12,7 +12,18 @@ assert token, "TUSHARE_TOKEN 环境变量未设置"
 
 ts.set_token(token)
 client = ts.pro_api()
-df = client.trade_cal(exchange='', start_date='20250801', end_date='20250831', is_open='0')
+# df = client.trade_cal(exchange='', start_date='20250801', end_date='20250831', is_open='0')
+# print(df)
+
+
+
+
+df = client.stock_basic(exchange='', list_status='L')
 print(df)
 
 
+# df = client.stock_basic(exchange='', list_status='D')
+# print(df)
+
+# df = client.stock_st(trade_date='20250813')
+# print(df)

@@ -33,4 +33,5 @@ def table_exists(table_name: str) -> bool:
     """
     with mysql_engine().connect() as conn:
         result = conn.execute(text(query))
-        return result.fetchone()[0] > 0
+        row = result.fetchone()
+        return row[0] > 0 if row else False

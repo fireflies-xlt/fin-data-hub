@@ -9,8 +9,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 from fin_data_hub.config import config
 from fin_data_hub.foundation.monitoring.telemetry import get_service_meter
-from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists
-from fin_data_hub.foundation.utils.date_utils import future_year_end, get_stock_start_date, next_day
+from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine
+from fin_data_hub.foundation.utils.date_utils import future_year_end, get_stock_start_date
+from fin_data_hub.data.tushare.tushare_data_cache import update_stock_basic_cache, update_trade_calendar_cache
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,8 @@ tushare_function_duration = meter.create_histogram(
 )
 
 _tushare_client: Any = None
-_trade_calendar_table = 'trade_calendar'
+trade_calendar_table = 'tushare_trade_calendar'
+stock_basic_table = 'tushare_stock_basic'
 
 def wrap_tushare(func: Callable) -> Callable:
     """
@@ -62,34 +64,45 @@ def get_tushare_client() -> Any:
         _tushare_client = ts.pro_api()
     return _tushare_client
 
+# =============================================================================
+# 股票数据 - 基础数据
+# =============================================================================
+
+@wrap_tushare
+def sync_stock_basic_data() -> pd.DataFrame | None:
+    """股票列表
+    
+    字段：ts_code symbol name area industry cnspell market list_date act_name act_ent_type
+    """
+    client = get_tushare_client()
+
+    l_data = client.stock_basic(exchange='', list_status='L')
+    l_data['status'] = 'L'
+
+    d_data = client.stock_basic(exchange='', list_status='D')
+    d_data['status'] = 'D'
+
+    data = pd.concat([l_data, d_data], ignore_index=True)
+
+    if data is not None and not data.empty:
+        data.to_sql(stock_basic_table, con=mysql_engine(), if_exists='replace', index=False)
+        update_stock_basic_cache(data)
+    logger.info(f"获取到 {len(data)} 条股票数据")
+    return data
+
 @wrap_tushare
 def sync_trade_calendar_data() -> pd.DataFrame | None:
-    """同步交易日历数据 - 可测试的业务逻辑"""
-    # 查询数据库中最新的日期
-
-    if table_exists(_trade_calendar_table):
-        query = f"SELECT MAX(cal_date) as last_date FROM {_trade_calendar_table}"
-        result = pd.read_sql(query, mysql_engine())
-        last_date = result['last_date'].iloc[0]
-    else:
-        last_date = None
+    """交易日历
     
-    # 获取未来今年的结束日期
-    year_end = future_year_end(0)
-    
-    # 如果最新日期已经是今年后，说明数据已是最新
-    if last_date and str(last_date) >= year_end:
-        logger.info("交易日历数据已是最新，无需更新")
-        return None
-    
-    start_date = get_stock_start_date() if last_date is None else next_day(str(last_date))
-    
-    df = get_tushare_client().trade_cal(
-        start_date=start_date,
-        end_date=year_end,
-    )
+    字段：exchange cal_date is_open pretrade_date
+    """
+    client = get_tushare_client()
+    start_date = get_stock_start_date()
+    end_date = future_year_end(0)
+    df = client.trade_cal(exchange='', start_date=start_date, end_date=end_date)
     if df is not None and not df.empty:
-        df.to_sql(_trade_calendar_table, con=mysql_engine(), if_exists='append', index=False)
+        df.to_sql(trade_calendar_table, con=mysql_engine(), if_exists='replace', index=False)
+        update_trade_calendar_cache(df)
     logger.info(f"获取到 {len(df)} 条交易日历数据")
     return df
 
@@ -97,11 +110,13 @@ def sync_trade_calendar_data() -> pd.DataFrame | None:
 scheduler = BackgroundScheduler()
 
 # 添加调度任务
-# @scheduler.scheduled_job(CronTrigger(day=1, hour=1, minute=0))  # 每月1号凌晨1点
-@scheduler.scheduled_job(CronTrigger(minute="*/1"))  # 每分钟
+@scheduler.scheduled_job(CronTrigger(day=1, hour=1, minute=0))  # 每月1号凌晨1点
 def scheduled_sync_trade_calendar():
-    """调度器调用的函数"""
     return sync_trade_calendar_data()
+
+@scheduler.scheduled_job(CronTrigger(hour=8, minute=15))  # 每天早上8点15分
+def scheduled_sync_stock_basic():
+    return sync_stock_basic_data()
 
 def start_scheduler():
     """启动调度器"""
