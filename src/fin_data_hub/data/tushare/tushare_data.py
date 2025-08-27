@@ -1,5 +1,6 @@
 import logging
 import time
+import threading
 from typing import Any, Callable
 
 import pandas as pd
@@ -27,13 +28,26 @@ _tushare_client: Any = None
 trade_calendar_table = 'tushare_trade_calendar'
 stock_basic_table = 'tushare_stock_basic'
 
+# 简单的运行状态跟踪（线程安全）
+_running_functions = set()
+_running_lock = threading.Lock()
+
 def wrap_tushare(func: Callable) -> Callable:
     """
     包装 tushare 函数, 标记为 tushare 函数
-    1. 每次调用时都重新初始化 tushare 客户端
-    2. 使用 OpenTelemetry metrics 统计调用耗时
+    1. 使用 OpenTelemetry metrics 统计调用耗时
+    2. 防重复调用
     """
     def wrapper(*args, **kwargs):
+        # 线程安全地检查是否正在运行
+        with _running_lock:
+            if func.__name__ in _running_functions:
+                logger.warning(f"函数 {func.__name__} 正在运行中，跳过本次执行")
+                return None
+            
+            # 标记为运行中
+            _running_functions.add(func.__name__)
+        
         start_time = time.time()
         try:
             result = func(*args, **kwargs)
@@ -43,6 +57,10 @@ def wrap_tushare(func: Callable) -> Callable:
             success = False
             logger.error(f"Tushare函数 {func.__name__} 执行失败: {e}")
         finally:
+            # 线程安全地移除运行标记
+            with _running_lock:
+                _running_functions.discard(func.__name__)
+            
             logger.info(f"Tushare函数 {func.__name__} 执行完成")
             # 计算执行时间（毫秒）
             duration_ms = (time.time() - start_time) * 1000
