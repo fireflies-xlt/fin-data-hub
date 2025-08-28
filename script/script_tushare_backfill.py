@@ -8,10 +8,11 @@ from fin_data_hub.data.tushare.tushare_data import get_tushare_client
 from fin_data_hub.data.tushare.constants import (
     STOCK_BASIC_TABLE, 
     TRADE_CALENDAR_TABLE, 
-    STOCK_ST_TABLE
+    STOCK_ST_TABLE,
+    DAILY_TABLE
 )
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists_and_not_empty
-from fin_data_hub.foundation.utils.date_utils import get_stock_start_date, future_year_end, current_date_ymd, next_day
+from fin_data_hub.foundation.utils.date_utils import add_year, get_stock_start_date, future_year_end, current_date_ymd, next_day
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,11 +23,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def backfill_stock_basic_data():
-    '''
+    """
     补全股票基础数据
 
     字段：ts_code symbol name area industry cnspell market list_date act_name act_ent_type
-    '''
+    """
     client = get_tushare_client()
 
     if  table_exists_and_not_empty(STOCK_BASIC_TABLE):
@@ -47,11 +48,11 @@ def backfill_stock_basic_data():
     return
 
 def backfill_trade_calendar_data():
-    '''
+    """
     补全交易日历数据
-    
+
     字段：exchange cal_date is_open pretrade_date
-    '''
+    """
     client = get_tushare_client()
     
     if  table_exists_and_not_empty(TRADE_CALENDAR_TABLE):
@@ -69,11 +70,11 @@ def backfill_trade_calendar_data():
 
 
 def backfill_stock_st_data():
-    '''
+    """
     补全ST股票列表数据
 
     字段：ts_code name trade_date type type_name
-    '''
+    """
     client = get_tushare_client()
 
     if table_exists_and_not_empty(STOCK_ST_TABLE):
@@ -104,12 +105,70 @@ def backfill_stock_st_data():
 
     return
 
+def backfill_bak_basic_data():
+    """
+    股票历史列表
+    """
+    # todo: 补全股票历史列表
+    return
+
+def backfill_daily_data():
+    """
+    A股日线行情
+
+    字段：ts_code trade_date open high low close pre_close change pct_chg vol amount
+    """
+    stock_list = get_stock_list()
+    client = get_tushare_client()
+
+    end_date = current_date_ymd()
+
+    for index, row in stock_list.iterrows():
+        ts_code = row['ts_code']
+        list_date = row['list_date']
+        
+        # 分批拉取数据，每20年拉一次
+        all_data = []
+        current_start = list_date
+        
+        while current_start < end_date:
+            time.sleep(0.5)
+
+            # 计算20年后的日期
+            current_end = min(add_year(current_start, 20), end_date)
+            df_batch = client.daily(ts_code=ts_code, start_date=current_start, end_date=current_end)
+            logger.info(f"拉取 {ts_code} 从 {current_start} 到 {current_end} 的 {len(df_batch)} 条数据")
+            if df_batch is not None and not df_batch.empty:
+                all_data.append(df_batch)
+            
+            current_start = next_day(current_end)
+           
+        
+        # 合并并排序
+        if all_data:
+            df_combined = pd.concat(all_data, ignore_index=True)
+            df_combined = df_combined.sort_values('trade_date', ascending=True)
+            df_combined.to_sql(DAILY_TABLE, con=mysql_engine(), if_exists='append', index=False)
+            logger.info(f"保存 {ts_code} 的 {len(df_combined)} 条数据")
+    
+    return
+
+def get_stock_list() -> pd.DataFrame:
+    """
+    获取股票列表
+    """
+    query = f"SELECT * FROM {STOCK_BASIC_TABLE}"
+    df = pd.read_sql(query, mysql_engine())
+    return df
+
 def main():
     """命令行入口点"""
     parser = argparse.ArgumentParser(description="Tushare数据补全")
     parser.add_argument("--stock_basic", action="store_true", help="补全股票基础数据")
     parser.add_argument("--trade_calendar", action="store_true", help="补全交易日历数据")
     parser.add_argument("--stock_st", action="store_true", help="补全ST股票列表数据")
+    parser.add_argument("--bak_basic", action="store_true", help="补全股票历史列表")
+    parser.add_argument("--daily", action="store_true", help="补全日线数据")
     args = parser.parse_args()
     
     if args.stock_basic:
@@ -118,6 +177,11 @@ def main():
         backfill_trade_calendar_data()
     if args.stock_st:
         backfill_stock_st_data()
-
+    if args.bak_basic:
+        backfill_bak_basic_data()
+    if args.daily:
+        backfill_daily_data()
+    backfill_daily_data()
+    
 if __name__ == "__main__":
     main()
