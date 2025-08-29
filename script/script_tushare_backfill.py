@@ -12,8 +12,15 @@ from fin_data_hub.data.tushare.constants import (
     DAILY_TABLE,
     DAILY_BASIC_TABLE,
     WEEKLY_TABLE,
-    MONTHLY_TABLE
+    MONTHLY_TABLE,
+    HSGT_TOP10_TABLE
 )
+from script.script_tushare_backfill_fin import (
+    backfill_income_data,
+    backfill_balancesheet_data
+)
+
+
 from fin_data_hub.foundation.mysql.mysql_engine import (
     mysql_engine, 
     table_exists_and_not_empty
@@ -57,7 +64,7 @@ def backfill_stock_basic_data():
 
     if data is not None and not data.empty:
         data.to_sql(STOCK_BASIC_TABLE, con=mysql_engine(), if_exists='replace', index=False)
-    logger.info(f"获取到 {len(data)} 条股票数据")
+    logger.info(f"[股票基础数据] 获取到 {len(data)} 条股票数据")
     return
 
 def backfill_trade_calendar_data():
@@ -78,7 +85,7 @@ def backfill_trade_calendar_data():
 
     if df is not None and not df.empty:
         df.to_sql(TRADE_CALENDAR_TABLE, con=mysql_engine(), if_exists='replace', index=False)
-    logger.info(f"获取到 {len(df)} 条交易日历数据")
+    logger.info(f"[交易日历数据] 获取到 {len(df)} 条交易日历数据")
     return
 
 
@@ -100,19 +107,19 @@ def backfill_stock_st_data():
     current_date = current_date_ymd()
     
     if start_date and str(start_date) >= current_date:
-        logger.info(f"ST股票列表数据已是最新（{start_date}），无需更新")
+        logger.info(f"[ST股票列表数据] 已是最新（{start_date}），无需更新")
         return None
     
     while start_date <= current_date:
         time.sleep(0.5)
         df = client.stock_st(trade_date=start_date)
         if df is None or df.empty:
-            logger.info(f"从 {start_date} 获取到 0 条ST股票列表数据")
+            logger.info(f"[ST股票列表数据] 从 {start_date} 获取到 0 条ST股票列表数据")
             start_date = next_day(start_date)
             continue
         
         df.to_sql(STOCK_ST_TABLE, con=mysql_engine(), if_exists='append', index=False)
-        logger.info(f"从 {start_date} 获取到 {len(df)} 条ST股票列表数据")
+        logger.info(f"[ST股票列表数据] 从 {start_date} 获取到 {len(df)} 条ST股票列表数据")
 
         start_date = next_day(start_date)
 
@@ -157,7 +164,7 @@ def backfill_daily_data():
             # 计算20年后的日期
             current_end = min(add_year(current_start, 20), end_date)
             df_batch = client.daily(ts_code=ts_code, start_date=current_start, end_date=current_end)
-            logger.info(f"拉取 {ts_code} 从 {current_start} 到 {current_end} 的 {len(df_batch)} 条数据")
+            logger.info(f"[日线行情数据] 拉取 {ts_code} 从 {current_start} 到 {current_end} 的 {len(df_batch)} 条数据")
             if df_batch is not None and not df_batch.empty:
                 all_data.append(df_batch)
             
@@ -169,7 +176,7 @@ def backfill_daily_data():
             df_combined = pd.concat(all_data, ignore_index=True)
             df_combined = df_combined.sort_values('trade_date', ascending=True)
             df_combined.to_sql(DAILY_TABLE, con=mysql_engine(), if_exists='append', index=False)
-            logger.info(f"保存 {ts_code} 的 {len(df_combined)} 条数据")
+            logger.info(f"[日线行情数据] 保存 {ts_code} 的 {len(df_combined)} 条数据")
     
     return
 
@@ -197,7 +204,7 @@ def backfill_daily_basic_data():
         df = client.daily_basic(ts_code='', trade_date=start_date)
         if df is not None and not df.empty:
             df.to_sql(DAILY_BASIC_TABLE, con=mysql_engine(), if_exists='append', index=False)
-        logger.info(f"获取到 {len(df)} 条 {start_date} 的每日指标数据")
+        logger.info(f"[每日指标数据] 获取到 {len(df)} 条 {start_date} 的每日指标数据")
         start_date = next_day(start_date)
 
     return
@@ -226,7 +233,7 @@ def backfill_weekly_data():
         df = client.weekly(trade_date=start_date)
         if df is not None and not df.empty:
             df.to_sql(WEEKLY_TABLE, con=mysql_engine(), if_exists='append', index=False)
-        logger.info(f"获取到 {len(df)} 条 {start_date} 的周线行情数据")
+        logger.info(f"[周线行情数据] 获取到 {len(df)} 条 {start_date} 的周线行情数据")
         start_date = next_day(start_date)
     return
 
@@ -261,9 +268,44 @@ def backfill_monthly_data():
                 df = client.monthly(trade_date=date_str)
                 if df is not None and not df.empty:
                     df.to_sql(MONTHLY_TABLE, con=mysql_engine(), if_exists='append', index=False)
+                    break
 
-        logger.info(f"获取到 {len(df)} 条 {date} 的月线行情数据")
+        logger.info(f"[月线行情数据] 获取到 {len(df)} 条 {date} 的月线行情数据")
     return
+
+
+def backfill_hsgt_top10_data():
+    """
+    补全沪深股通十大成交股
+
+    字段：trade_date ts_code name close change rank market_type amount net_amount buy sell
+    """
+    # 跑过一段时间，在这之前都没有数据
+    start_date = "20030717"
+
+    if table_exists_and_not_empty(HSGT_TOP10_TABLE):
+        query = f"SELECT MAX(trade_date) as last_date FROM {HSGT_TOP10_TABLE}"
+        df = pd.read_sql(query, mysql_engine())
+        last_date = df['last_date'].iloc[0]
+        if last_date:
+            start_date = next_day(last_date)
+
+    current_date = current_date_ymd()
+
+    client = get_tushare_client()
+
+    while start_date < current_date:
+        time.sleep(1)
+        df_1 = client.hsgt_top10(trade_date=start_date, market_type='1')
+        time.sleep(1)
+        df_3 = client.hsgt_top10(trade_date=start_date, market_type='3')
+        df = pd.concat([df_1, df_3], ignore_index=True)
+        if df is not None and not df.empty:
+            df.to_sql(HSGT_TOP10_TABLE, con=mysql_engine(), if_exists='append', index=False)
+        logger.info(f"[沪深股通十大成交股数据] 获取到 {len(df)} 条 {start_date} 的沪深股通十大成交股数据，其中沪股通 {len(df_1)} 条，深股通 {len(df_3)} 条")
+        start_date = next_day(start_date)
+    return
+
 
 def get_stock_list() -> pd.DataFrame:
     """
@@ -293,6 +335,7 @@ def main():
     parser.add_argument("--daily_basic", action="store_true", help="补全每日指标")
     parser.add_argument("--weekly", action="store_true", help="补全周线行情")
     parser.add_argument("--monthly", action="store_true", help="补全月线行情")
+    parser.add_argument("--hsgt_top10", action="store_true", help="补全沪深股通十大成交股")
     args = parser.parse_args()
     
     if args.stock_basic:
@@ -311,8 +354,12 @@ def main():
         backfill_weekly_data()
     if args.monthly:
         backfill_monthly_data()
+    if args.hsgt_top10:
+        backfill_hsgt_top10_data()
 
-    backfill_monthly_data()
+    # backfill_income_data()
+    backfill_balancesheet_data()
+
         
 if __name__ == "__main__":
     main()

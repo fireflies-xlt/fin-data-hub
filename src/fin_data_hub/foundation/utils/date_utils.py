@@ -110,3 +110,32 @@ def get_all_month_end(start_date: str, end_date: str) -> list[str]:
             current = current.replace(month=current.month + 1)
     
     return month_end_dates
+
+
+def get_all_quarter_end(start_date: str, end_date: str) -> list[str]:
+    """
+    获取所有季度的最后一天
+    """
+    start_obj = datetime.datetime.strptime(start_date, '%Y%m%d')
+    end_obj = datetime.datetime.strptime(end_date, '%Y%m%d')
+    
+    quarter_end_dates: list[str] = []
+    
+    # 季度最后一天：0331, 0630, 0930, 1231
+    quarter_end_patterns = ['0331', '0630', '0930', '1231']
+    
+    # 从开始年份开始遍历
+    current_year = start_obj.year
+    
+    while current_year <= end_obj.year:
+        for pattern in quarter_end_patterns:
+            quarter_end_date = f"{current_year}{pattern}"
+            quarter_end_obj = datetime.datetime.strptime(quarter_end_date, '%Y%m%d')
+            
+            # 如果日期在范围内，添加到结果中
+            if start_obj <= quarter_end_obj <= end_obj:
+                quarter_end_dates.append(quarter_end_date)
+        
+        current_year += 1
+    
+    return quarter_end_dates
