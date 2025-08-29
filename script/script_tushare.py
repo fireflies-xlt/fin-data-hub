@@ -5,6 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import tushare as ts
+from fin_data_hub.foundation.utils.date_utils import (
+    get_all_month_end, 
+    get_stock_start_date, 
+    current_date_ymd
+)
 
 # 从 .env 文件读取 token
 token = os.getenv("TUSHARE_TOKEN")
@@ -40,5 +45,21 @@ client = ts.pro_api()
 # print(f"最晚交易日期: {max_date}")
 
 
-daily_basic = client.daily_basic(ts_code='', trade_date='20180726')
-print(daily_basic)
+
+df = client.monthly(trade_date='19910430')
+print(df)
+
+
+start_date = 19910301
+end_date = 19910331
+
+for date in range(start_date, end_date):
+    date_str = str(date)
+    df = client.monthly(trade_date=date_str)
+    print(df)
+
+
+# month_end_dates = get_all_month_end(get_stock_start_date(), current_date_ymd())
+# for date in month_end_dates:
+#     print(date)
+

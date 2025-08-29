@@ -10,7 +10,9 @@ from fin_data_hub.data.tushare.constants import (
     TRADE_CALENDAR_TABLE, 
     STOCK_ST_TABLE,
     DAILY_TABLE,
-    DAILY_BASIC_TABLE
+    DAILY_BASIC_TABLE,
+    WEEKLY_TABLE,
+    MONTHLY_TABLE
 )
 from fin_data_hub.foundation.mysql.mysql_engine import (
     mysql_engine, 
@@ -21,7 +23,8 @@ from fin_data_hub.foundation.utils.date_utils import (
     get_stock_start_date, 
     future_year_end, 
     current_date_ymd, 
-    next_day
+    next_day,
+    get_all_month_end
 )
 
 logging.basicConfig(
@@ -190,13 +193,76 @@ def backfill_daily_basic_data():
 
     client = get_tushare_client()
     while start_date < current_date:
-        time.sleep(0.5)
+        time.sleep(1)
         df = client.daily_basic(ts_code='', trade_date=start_date)
         if df is not None and not df.empty:
             df.to_sql(DAILY_BASIC_TABLE, con=mysql_engine(), if_exists='append', index=False)
         logger.info(f"获取到 {len(df)} 条 {start_date} 的每日指标数据")
         start_date = next_day(start_date)
 
+    return
+
+
+def backfill_weekly_data():
+    """
+    补全周线行情
+
+    字段：ts_code trade_date open high low close vol amount
+    """
+    start_date = get_stock_start_date()
+
+    if table_exists_and_not_empty(WEEKLY_TABLE):
+        query = f"SELECT MAX(trade_date) as last_date FROM {WEEKLY_TABLE}"
+        df = pd.read_sql(query, mysql_engine())
+        last_date = df['last_date'].iloc[0]
+        if last_date:
+            start_date = next_day(last_date)
+    
+    current_date = current_date_ymd()
+
+    client = get_tushare_client() 
+    while start_date < current_date:
+        time.sleep(1)
+        df = client.weekly(trade_date=start_date)
+        if df is not None and not df.empty:
+            df.to_sql(WEEKLY_TABLE, con=mysql_engine(), if_exists='append', index=False)
+        logger.info(f"获取到 {len(df)} 条 {start_date} 的周线行情数据")
+        start_date = next_day(start_date)
+    return
+
+def backfill_monthly_data():
+    """
+    补全月线行情
+
+    字段：ts_code trade_date close open high low pre_close change pct_chg vol amount
+    """
+    start_date = get_stock_start_date()
+
+    if table_exists_and_not_empty(MONTHLY_TABLE):
+        query = f"SELECT MAX(trade_date) as last_date FROM {MONTHLY_TABLE}"
+        df = pd.read_sql(query, mysql_engine())
+        last_date = df['last_date'].iloc[0]
+        if last_date:
+            start_date = next_day(last_date)
+
+    month_end_dates = get_all_month_end(start_date, current_date_ymd())
+
+    client = get_tushare_client()
+    for date in month_end_dates:
+        time.sleep(1)
+        df = client.monthly(trade_date=date)
+        if df is not None and not df.empty:
+            df.to_sql(MONTHLY_TABLE, con=mysql_engine(), if_exists='append', index=False)
+        else:
+            # 如果获取不到数据，则调用该月每天的数据
+            for day in range(1, 31):
+                date_str = f"{date[:4]}{date[4:6]}{day:02d}"
+                time.sleep(1)
+                df = client.monthly(trade_date=date_str)
+                if df is not None and not df.empty:
+                    df.to_sql(MONTHLY_TABLE, con=mysql_engine(), if_exists='append', index=False)
+
+        logger.info(f"获取到 {len(df)} 条 {date} 的月线行情数据")
     return
 
 def get_stock_list() -> pd.DataFrame:
@@ -225,6 +291,8 @@ def main():
     parser.add_argument("--bak_basic", action="store_true", help="补全股票历史列表")
     parser.add_argument("--daily", action="store_true", help="补全日线数据")
     parser.add_argument("--daily_basic", action="store_true", help="补全每日指标")
+    parser.add_argument("--weekly", action="store_true", help="补全周线行情")
+    parser.add_argument("--monthly", action="store_true", help="补全月线行情")
     args = parser.parse_args()
     
     if args.stock_basic:
@@ -239,8 +307,12 @@ def main():
         backfill_daily_data()
     if args.daily_basic:
         backfill_daily_basic_data()
+    if args.weekly:
+        backfill_weekly_data()
+    if args.monthly:
+        backfill_monthly_data()
 
-    backfill_daily_basic_data()
-
+    backfill_monthly_data()
+        
 if __name__ == "__main__":
     main()

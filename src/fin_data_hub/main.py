@@ -13,8 +13,7 @@ async def lifespan(app: FastAPI):
     # -- Startup --
     logger.info("FastAPI Lifespan: 初始化中...")
 
-    from fin_data_hub.data import start_scheduler
-    from fin_data_hub.data import stop_scheduler
+    from fin_data_hub.foundation.scheduler import start_scheduler, stop_scheduler
 
     start_scheduler()
 

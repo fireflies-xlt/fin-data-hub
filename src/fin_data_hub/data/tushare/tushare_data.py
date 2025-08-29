@@ -5,9 +5,9 @@ from typing import Any, Callable
 
 import pandas as pd
 import tushare as ts
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from fin_data_hub.foundation.scheduler import get_scheduler
 from fin_data_hub.config import config
 from fin_data_hub.foundation.monitoring.telemetry import get_service_meter
 from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine
@@ -211,15 +211,7 @@ def sync_daily_data() -> None:
             df.to_sql(DAILY_TABLE, con=mysql_engine(), if_exists='append', index=False)
         logger.info(f"[日线行情] 从 {start_date} 到 {end_date} 获取到 {len(df)} 条 {ts_code} 的日线行情数据")
 
-# 创建后台调度器，配置线程池大小
-scheduler = BackgroundScheduler(
-    executors={
-        'default': {
-            'type': 'threadpool',
-            'max_workers': 20  
-        }
-    }
-)
+scheduler = get_scheduler()
 
 # 添加调度任务
 @scheduler.scheduled_job(CronTrigger(day=1, hour=1, minute=0))  # 每月1号凌晨1点
@@ -237,13 +229,3 @@ def scheduled_sync_daily():
 @scheduler.scheduled_job(CronTrigger(hour=9, minute=21))  # 每天上午9点21分
 def scheduled_sync_stock_st():
     return sync_stock_st_data()
-
-def start_scheduler():
-    """启动调度器"""
-    scheduler.start()
-    logger.info("异步调度器已启动")
-
-def stop_scheduler():
-    """停止调度器"""
-    scheduler.shutdown()
-    logger.info("异步调度器已停止")
