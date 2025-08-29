@@ -26,15 +26,19 @@ client = ts.pro_api()
 # print(df)
 
 
-df = client.daily(ts_code='000001.SZ', start_date='19910403', end_date='20250828')
+# df = client.daily(ts_code='000001.SZ', start_date='19910403', end_date='20250828')
 
-# 按 trade_date 升序排序（从早到晚）
-df_sorted_asc = df.sort_values('trade_date', ascending=True)
-print("按交易日期升序排序（从早到晚）:")
-print(df_sorted_asc.head())
+# # 按 trade_date 升序排序（从早到晚）
+# df_sorted_asc = df.sort_values('trade_date', ascending=True)
+# print("按交易日期升序排序（从早到晚）:")
+# print(df_sorted_asc.head())
 
-# 获取 trade_date 的最大值和最小值
-min_date = df['trade_date'].min()
-max_date = df['trade_date'].max()
-print(f"\n最早交易日期: {min_date}")
-print(f"最晚交易日期: {max_date}")
+# # 获取 trade_date 的最大值和最小值
+# min_date = df['trade_date'].min()
+# max_date = df['trade_date'].max()
+# print(f"\n最早交易日期: {min_date}")
+# print(f"最晚交易日期: {max_date}")
+
+
+daily_basic = client.daily_basic(ts_code='', trade_date='20180726')
+print(daily_basic)

@@ -9,10 +9,20 @@ from fin_data_hub.data.tushare.constants import (
     STOCK_BASIC_TABLE, 
     TRADE_CALENDAR_TABLE, 
     STOCK_ST_TABLE,
-    DAILY_TABLE
+    DAILY_TABLE,
+    DAILY_BASIC_TABLE
 )
-from fin_data_hub.foundation.mysql.mysql_engine import mysql_engine, table_exists_and_not_empty
-from fin_data_hub.foundation.utils.date_utils import add_year, get_stock_start_date, future_year_end, current_date_ymd, next_day
+from fin_data_hub.foundation.mysql.mysql_engine import (
+    mysql_engine, 
+    table_exists_and_not_empty
+)
+from fin_data_hub.foundation.utils.date_utils import (
+    add_year, 
+    get_stock_start_date, 
+    future_year_end, 
+    current_date_ymd, 
+    next_day
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -130,6 +140,13 @@ def backfill_daily_data():
         # 分批拉取数据，每20年拉一次
         all_data = []
         current_start = list_date
+
+        if table_exists_and_not_empty(DAILY_TABLE):
+            query = f"SELECT MAX(trade_date) as last_date FROM {DAILY_TABLE} WHERE ts_code = '{ts_code}'"
+            df = pd.read_sql(query, mysql_engine())
+            if df is not None and not df.empty:
+                last_date = df['last_date'].iloc[0]
+                current_start = next_day(last_date)
         
         while current_start < end_date:
             time.sleep(0.5)
@@ -153,11 +170,49 @@ def backfill_daily_data():
     
     return
 
+
+def backfill_daily_basic_data():
+    """
+    补全每日指标
+
+    字段：ts_code trade_date close turnover_rate turnover_rate_f volume_ratio pe pe_ttm pb ps ps_ttm dv_ratio dv_ttm total_share float_share free_share total_mv circ_mv
+    """
+    start_date = get_stock_start_date()
+
+    if table_exists_and_not_empty(DAILY_BASIC_TABLE):
+        query = f"SELECT MAX(trade_date) as last_date FROM {DAILY_BASIC_TABLE}"
+        df = pd.read_sql(query, mysql_engine())
+        last_date = df['last_date'].iloc[0]
+        if last_date:
+            start_date = next_day(last_date)
+
+    current_date = current_date_ymd()
+
+    client = get_tushare_client()
+    while start_date < current_date:
+        time.sleep(0.5)
+        df = client.daily_basic(ts_code='', trade_date=start_date)
+        if df is not None and not df.empty:
+            df.to_sql(DAILY_BASIC_TABLE, con=mysql_engine(), if_exists='append', index=False)
+        logger.info(f"获取到 {len(df)} 条 {start_date} 的每日指标数据")
+        start_date = next_day(start_date)
+
+    return
+
 def get_stock_list() -> pd.DataFrame:
     """
     获取股票列表
     """
     query = f"SELECT * FROM {STOCK_BASIC_TABLE}"
+    df = pd.read_sql(query, mysql_engine())
+    return df
+
+
+def get_trade_calendar_list() -> pd.DataFrame:
+    """
+    获取交易日历列表
+    """
+    query = f"SELECT * FROM {TRADE_CALENDAR_TABLE}"
     df = pd.read_sql(query, mysql_engine())
     return df
 
@@ -169,6 +224,7 @@ def main():
     parser.add_argument("--stock_st", action="store_true", help="补全ST股票列表数据")
     parser.add_argument("--bak_basic", action="store_true", help="补全股票历史列表")
     parser.add_argument("--daily", action="store_true", help="补全日线数据")
+    parser.add_argument("--daily_basic", action="store_true", help="补全每日指标")
     args = parser.parse_args()
     
     if args.stock_basic:
@@ -181,7 +237,10 @@ def main():
         backfill_bak_basic_data()
     if args.daily:
         backfill_daily_data()
-    backfill_daily_data()
-    
+    if args.daily_basic:
+        backfill_daily_basic_data()
+
+    backfill_daily_basic_data()
+
 if __name__ == "__main__":
     main()
